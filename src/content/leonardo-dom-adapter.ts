@@ -46,6 +46,7 @@ export class LeonardoDomAdapter {
               this.fillNegativePromptIfAvailable(params.negativePrompt);
       }
 
+      await this.waitForGenerateButtonEnabled(10_000);
       this.clickGenerate();
         await this.waitForGenerationStarted(30_000);
         await this.waitForGenerationCompleted(params.generationTimeoutMs);
@@ -80,10 +81,6 @@ export class LeonardoDomAdapter {
 
       if (!state.hasGenerateButton) {
               throw new Error('Generate button not found. Update selectors in leonardo-dom-adapter.ts.');
-      }
-
-      if (!state.isGenerateButtonEnabled) {
-              throw new Error('Generate button is disabled.');
       }
   }
 
@@ -144,10 +141,12 @@ export class LeonardoDomAdapter {
   // ── Selector methods ──────────────────────────────────────────────────────
 
   findPromptInput(): HTMLTextAreaElement | null {
-        // Verified: Leonardo.ai uses a textarea with this exact placeholder
-      return document.querySelector<HTMLTextAreaElement>(
-              'textarea[placeholder="Type a prompt..."]'
-            );
+        return (
+                document.querySelector<HTMLTextAreaElement>('textarea#prompt-textarea') ??
+                document.querySelector<HTMLTextAreaElement>('[data-testid="prompt-container"] textarea') ??
+                document.querySelector<HTMLTextAreaElement>('textarea[name="prompt"]') ??
+                document.querySelector<HTMLTextAreaElement>('textarea[placeholder="Type a prompt..."]')
+              );
   }
 
   findNegativePromptInput(): HTMLTextAreaElement | HTMLInputElement | HTMLElement | null {
@@ -159,9 +158,12 @@ export class LeonardoDomAdapter {
   }
 
   findGenerateButton(): HTMLButtonElement | null {
-        // Verified: Leonardo.ai uses a submit button that contains text "Generate"
-      // The button becomes disabled during generation (shows a loading spinner)
-      return document.querySelector<HTMLButtonElement>('button[type="submit"]');
+        return (
+                document.querySelector<HTMLButtonElement>('button[data-tour-id="gen-tour-generate-button"]') ??
+                document.querySelector<HTMLButtonElement>('button[aria-label="Generate"]') ??
+                this.findButtonByText('Generate') ??
+                document.querySelector<HTMLButtonElement>('button[type="submit"]')
+              );
   }
 
   isGenerationRunning(): boolean {
@@ -191,6 +193,17 @@ export class LeonardoDomAdapter {
               );
 
       return isButtonEnabled && hasNoSpinner;
+  }
+
+  async waitForGenerateButtonEnabled(timeoutMs: number): Promise<void> {
+        await this.waitUntil(
+                () => {
+                  const button = this.findGenerateButton();
+                  return Boolean(button && !button.disabled);
+                },
+                timeoutMs,
+                'Generate button did not become enabled after filling the prompt.'
+              );
   }
 
   hasBlockingModal(): boolean {
@@ -223,12 +236,23 @@ export class LeonardoDomAdapter {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
+  private findButtonByText(text: string): HTMLButtonElement | null {
+        const normalizedText = text.trim().toLowerCase();
+        const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('button'));
+
+      return (
+              buttons.find((button) => button.textContent?.trim().toLowerCase() === normalizedText) ?? null
+            );
+  }
+
   private setElementValue(
         element: HTMLTextAreaElement | HTMLInputElement | HTMLElement,
         value: string
       ): void {
         // For textarea and input elements use React-compatible value setter
       if (element instanceof HTMLTextAreaElement || element instanceof HTMLInputElement) {
+              element.focus();
+
               const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
                         element instanceof HTMLTextAreaElement
                           ? HTMLTextAreaElement.prototype
@@ -243,7 +267,6 @@ export class LeonardoDomAdapter {
                     return;
           }
 
-          element.focus();
               element.value = value;
               element.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: value }));
               element.dispatchEvent(new Event('change', { bubbles: true }));

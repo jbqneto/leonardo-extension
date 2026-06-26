@@ -1,6 +1,6 @@
 {
   "name": "leonardo-extension-automation-starter",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "Chrome Extension starter for local Leonardo.ai prompt automation.",

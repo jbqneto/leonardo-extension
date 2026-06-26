@@ -17,7 +17,8 @@
     "storage",
     "sidePanel",
     "activeTab",
-    "tabs"
+    "tabs",
+    "scripting"
   ],
   "host_permissions": [
     "https://*.leonardo.ai/*"

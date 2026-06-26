@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "Leonardo Prompt Runner",
+  "version": "0.1.0",
+  "description": "Local prompt queue assistant for Leonardo.ai.",
+  "action": {
+    "default_title": "Leonardo Prompt Runner"
+  },
+  "background": {
+    "service_worker": "assets/service-worker.js",
+    "type": "module"
+  },
+  "side_panel": {
+    "default_path": "src/sidepanel/index.html"
+  },
+  "permissions": [
+    "storage",
+    "sidePanel",
+    "activeTab",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://*.leonardo.ai/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.leonardo.ai/*"
+      ],
+      "js": [
+        "assets/leonardo-content-script.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

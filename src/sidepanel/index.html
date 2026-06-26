@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Leonardo Prompt Runner</title>
+    <script type="module" src="./main.ts"></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header>
+        <h1>Leonardo Prompt Runner</h1>
+        <p>Local prompt queue assistant for Leonardo.ai.</p>
+      </header>
+
+      <section class="panel">
+        <label for="promptFile">Prompt file</label>
+        <input id="promptFile" type="file" accept=".txt,text/plain" />
+
+        <label for="postDelay">Post-generation delay (ms)</label>
+        <input id="postDelay" type="number" min="0" step="500" value="2000" />
+
+        <label for="timeout">Generation timeout (ms)</label>
+        <input id="timeout" type="number" min="30000" step="10000" value="180000" />
+      </section>
+
+      <section class="actions">
+        <button id="dryRunButton">Dry run</button>
+        <button id="diagnosticsButton">Diagnostics</button>
+        <button id="startButton">Start</button>
+        <button id="pauseButton">Pause</button>
+        <button id="resumeButton">Resume</button>
+        <button id="stopButton">Stop</button>
+      </section>
+
+      <section class="status-box">
+        <h2>Status</h2>
+        <pre id="statusOutput">Idle</pre>
+      </section>
+
+      <section class="preview-box">
+        <h2>Prompt preview</h2>
+        <ol id="promptPreview"></ol>
+      </section>
+
+      <section class="log-box">
+        <h2>Logs</h2>
+        <pre id="logOutput"></pre>
+      </section>
+    </main>
+  </body>
+</html>

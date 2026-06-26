@@ -17,6 +17,7 @@ const stopButton = document.querySelector<HTMLButtonElement>('#stopButton');
 const statusOutput = document.querySelector<HTMLPreElement>('#statusOutput');
 const logOutput = document.querySelector<HTMLPreElement>('#logOutput');
 const promptPreview = document.querySelector<HTMLOListElement>('#promptPreview');
+const negativePromptInput = document.querySelector<HTMLTextAreaElement>('#negativePrompt');
 
 let currentPrompts: string[] = [];
 let currentRunner: PromptRunner | null = null;
@@ -95,14 +96,16 @@ async function handleStart(): Promise<void> {
       renderPreview(currentPrompts);
     }
 
-    const postGenerationDelayMs = Number(postDelayInput?.value ?? 2000);
+    const postGenerationDelayMs = Number(postDelayInput?.value ?? 70000);
     const generationTimeoutMs = Number(timeoutInput?.value ?? 180000);
     const queue = createPromptQueue(currentPrompts);
+            const negativePrompt = negativePromptInput?.value?.trim() || undefined;
 
     currentRunState = createRunState({
       queue,
       postGenerationDelayMs,
-      generationTimeoutMs
+      generationTimeoutMs,
+              negativePrompt
     });
 
     currentRunner = new PromptRunner({

@@ -60,7 +60,8 @@ export class PromptRunner {
         type: 'SUBMIT_PROMPT',
         payload: {
           prompt: item.prompt,
-          generationTimeoutMs: runState.generationTimeoutMs
+          generationTimeoutMs: runState.generationTimeoutMs,
+                    negativePrompt: runState.negativePrompt
         }
       });
 

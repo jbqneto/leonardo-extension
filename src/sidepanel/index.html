@@ -17,8 +17,11 @@
         <label for="promptFile">Prompt file</label>
         <input id="promptFile" type="file" accept=".txt,text/plain" />
 
+                <label for="negativePrompt">Negative prompt (optional)</label>
+                <textarea id="negativePrompt" rows="3" placeholder="modern buildings, people, cars, text, watermark..."></textarea>
+
         <label for="postDelay">Post-generation delay (ms)</label>
-        <input id="postDelay" type="number" min="0" step="500" value="2000" />
+        <input id="postDelay" type="number" min="0" step="500" value="70000" />
 
         <label for="timeout">Generation timeout (ms)</label>
         <input id="timeout" type="number" min="30000" step="10000" value="180000" />

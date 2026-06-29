@@ -62,6 +62,7 @@ export class PromptRunner {
           prompt: item.prompt,
           generationTimeoutMs: runState.generationTimeoutMs,
                     negativePrompt: runState.negativePrompt
+                  aspectRatio: item.aspectRatio,
         }
       });
 

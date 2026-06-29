@@ -19,6 +19,7 @@ export interface SubmitPromptMessage {
     prompt: string;
     negativePrompt?: string;
     generationTimeoutMs: number;
+        aspectRatio?: string;
   };
 }
 

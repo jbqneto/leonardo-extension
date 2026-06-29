@@ -96,8 +96,8 @@ async function handleStart(): Promise<void> {
       renderPreview(currentPrompts);
     }
 
-    const postGenerationDelayMs = Number(postDelayInput?.value ?? 70000);
-    const generationTimeoutMs = Number(timeoutInput?.value ?? 180000);
+    const postGenerationDelayMs = Number(postDelayInput?.value ?? 30_000);
+    const generationTimeoutMs = Number(timeoutInput?.value ?? 180_000);
     const queue = createPromptQueue(currentPrompts);
             const negativePrompt = negativePromptInput?.value?.trim() || undefined;
 

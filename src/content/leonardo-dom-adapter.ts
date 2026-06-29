@@ -1,4 +1,3 @@
-import { delay } from '../utils/delay';
 import type { LeonardoPageState } from './leonardo-page-state';
 
 /**
@@ -87,9 +86,9 @@ export class LeonardoDomAdapter {
   fillPrompt(prompt: string): void {
         const input = this.findPromptInput();
 
-      if (!input) {
-              throw new Error('Prompt input not found.');
-      }
+        if (!input) {
+                throw new Error('Prompt input not found.');
+        }
 
       this.setElementValue(input, prompt);
   }
@@ -308,4 +307,8 @@ export class LeonardoDomAdapter {
 
       throw new Error(timeoutMessage);
   }
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }

@@ -1,14 +1,22 @@
 import type { ExtensionMessage, ExtensionResponse } from '../messaging/extension-messages';
-import { logger } from '../utils/logger';
 import { LeonardoDomAdapter } from './leonardo-dom-adapter';
 
 const adapter = new LeonardoDomAdapter();
+const contentLogger = {
+  info(message: string, data?: unknown): void {
+    console.info(`[Leonardo Prompt Runner] ${message}`, data ?? '');
+  },
+
+  error(message: string, data?: unknown): void {
+    console.error(`[Leonardo Prompt Runner] ${message}`, data ?? '');
+  }
+};
 
 chrome.runtime.onMessage.addListener((message: ExtensionMessage, _sender, sendResponse) => {
   handleMessage(message)
     .then(sendResponse)
     .catch((error: unknown) => {
-      logger.error('Content script error.', error);
+      contentLogger.error('Content script error.', error);
       sendResponse({
         ok: false,
         error: error instanceof Error ? error.message : 'Unknown content script error.',
@@ -45,4 +53,4 @@ async function handleMessage(message: ExtensionMessage): Promise<ExtensionRespon
   }
 }
 
-logger.info('Content script loaded.');
+contentLogger.info('Content script loaded.');

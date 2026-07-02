@@ -61,8 +61,9 @@ export class PromptRunner {
         payload: {
           prompt: item.prompt,
           generationTimeoutMs: runState.generationTimeoutMs,
-                    negativePrompt: runState.negativePrompt
-                  aspectRatio: item.aspectRatio,
+          negativePrompt: runState.negativePrompt,
+          aspectRatio: item.aspectRatio,
+          autoDownload: runState.autoDownload,
         }
       });
 
@@ -80,6 +81,10 @@ export class PromptRunner {
       runState.completedPrompts += 1;
       runState.currentIndex = index + 1;
       await this.persist(runState);
+
+      if (runState.autoDownload) {
+        this.events.onLog('Generation completed. Download requested via Leonardo UI.');
+      }
 
       this.events.onLog(`Generation completed. Waiting ${runState.postGenerationDelayMs}ms before next prompt.`);
       await delay(runState.postGenerationDelayMs);

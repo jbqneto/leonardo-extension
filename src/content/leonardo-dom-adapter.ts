@@ -5,20 +5,6 @@ import type { LeonardoPageState } from './leonardo-page-state';
  *
  * All Leonardo.ai DOM interactions are isolated here.
  * Selectors verified by direct interaction on 2026-06-26.
- *
- * VERIFIED SELECTORS:
- *   Prompt input:         textarea[placeholder="Type a prompt..."]
- *   Negative prompt:      textarea[placeholder="Type a negative prompt"]
- *   Generate button:      button[type="submit"] (contains text "Generate")
- *   Generation running:   Generate button becomes disabled + loading spinner appears
- *   Generation completed: Generate button re-enabled + no spinner
- *   Blocking modal:       [role="dialog"][aria-modal="true"]
- *   CAPTCHA:              text "verify you are human" in body
- *   Login challenge:      URL includes /auth/ or login form visible
- *
- *   Aspect ratio sidebar buttons: button[role="radio"][value="2:3|1:1|16:9"]
- *   Custom button (opens dialog): button#CUSTOM
- *   Dialog preset buttons:        button containing "Instagram", "Twitter", "TikTok", etc.
  */
 export class LeonardoDomAdapter {
   getPageState(): LeonardoPageState {
@@ -42,6 +28,7 @@ export class LeonardoDomAdapter {
     negativePrompt?: string;
     generationTimeoutMs: number;
     aspectRatio?: string;
+    autoDownload?: boolean;
   }): Promise<void> {
     this.assertSafeToRun();
     this.fillPrompt(params.prompt);
@@ -50,7 +37,6 @@ export class LeonardoDomAdapter {
       this.fillNegativePromptIfAvailable(params.negativePrompt);
     }
 
-    // Set aspect ratio BEFORE clicking Generate
     if (params.aspectRatio) {
       await this.setAspectRatio(params.aspectRatio);
     }
@@ -59,6 +45,10 @@ export class LeonardoDomAdapter {
     this.clickGenerate();
     await this.waitForGenerationStarted(30_000);
     await this.waitForGenerationCompleted(params.generationTimeoutMs);
+
+    if (params.autoDownload) {
+      await this.downloadLatestGeneration();
+    }
   }
 
   private assertSafeToRun(): void {
@@ -103,7 +93,7 @@ export class LeonardoDomAdapter {
     const input = this.findNegativePromptInput();
 
     if (!input) {
-      return; // negative prompt is optional
+      return;
     }
 
     this.setElementValue(input, negativePrompt);
@@ -123,18 +113,9 @@ export class LeonardoDomAdapter {
     button.click();
   }
 
-  // --- Aspect Ratio -----------------------------------------------------------
-
-  /**
-   * Sets aspect ratio by clicking the appropriate button in Leonardo's UI.
-   *
-   * Direct sidebar buttons (no dialog): "2:3", "1:1", "16:9"
-   * Via Custom dialog:                  "4:5" (Instagram), "9:16" (TikTok), "4:3" (Twitter/X)
-   */
   async setAspectRatio(aspectRatio: string): Promise<void> {
     const ar = aspectRatio.trim();
 
-    // Try direct sidebar radio buttons first
     const directBtn = document.querySelector<HTMLButtonElement>(
       `button[role="radio"][value="${ar}"]`
     );
@@ -144,13 +125,12 @@ export class LeonardoDomAdapter {
       return;
     }
 
-    // Map aspect ratio to partial dialog button label
     const dialogLabelMap: Record<string, string> = {
-      '4:5':  'Instagram',
+      '4:5': 'Instagram',
       '9:16': 'TikTok',
-      '4:3':  'Twitter',
+      '4:3': 'Twitter',
       '16:9': 'Desktop',
-      '1:1':  'Square',
+      '1:1': 'Square',
     };
 
     const labelFragment = dialogLabelMap[ar];
@@ -159,7 +139,6 @@ export class LeonardoDomAdapter {
       return;
     }
 
-    // Open the Custom dialog
     const customBtn = document.querySelector<HTMLButtonElement>('button#CUSTOM');
     if (!customBtn) {
       console.warn('[Leonardo Ext] Custom button not found.');
@@ -167,17 +146,15 @@ export class LeonardoDomAdapter {
     }
     customBtn.click();
 
-    // Wait for dialog to open
     await this.waitUntil(
       () => Boolean(document.querySelector('[role="dialog"][aria-modal="true"]')),
       5_000,
       'Image Dimensions dialog did not open.'
     );
 
-    // Find and click the matching button inside dialog
     const dialogBtns = document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button');
     let clicked = false;
-    dialogBtns.forEach(btn => {
+    dialogBtns.forEach((btn) => {
       if (!clicked && btn.textContent?.includes(labelFragment)) {
         btn.click();
         clicked = true;
@@ -185,7 +162,6 @@ export class LeonardoDomAdapter {
     });
 
     if (!clicked) {
-      // Close dialog and warn
       const closeBtn = document.querySelector<HTMLButtonElement>(
         '[role="dialog"] button[aria-label="Close"], [role="dialog"] button[data-testid="close"]'
       );
@@ -194,7 +170,6 @@ export class LeonardoDomAdapter {
       return;
     }
 
-    // Wait for dialog to close
     await this.waitUntil(
       () => !document.querySelector('[role="dialog"][aria-modal="true"]'),
       5_000,
@@ -204,8 +179,6 @@ export class LeonardoDomAdapter {
     await this.delay(500);
   }
 
-  // --- Generation state -------------------------------------------------------
-
   async waitForGenerationStarted(timeoutMs: number): Promise<void> {
     await this.waitUntil(
       () => this.isGenerationRunning(),
@@ -214,13 +187,7 @@ export class LeonardoDomAdapter {
     );
   }
 
-  /**
-   * Waits for the current generation to complete.
-   * Adds a short initial delay to allow spinner to appear before polling.
-   * Caller must have already called waitForGenerationStarted before this.
-   */
   async waitForGenerationCompleted(timeoutMs: number): Promise<void> {
-    // Brief pause to ensure spinner is visible before we start polling
     await this.delay(1_500);
 
     await this.waitUntil(
@@ -230,7 +197,41 @@ export class LeonardoDomAdapter {
     );
   }
 
-  // --- Selector methods -------------------------------------------------------
+  async downloadLatestGeneration(): Promise<void> {
+    const generationItem = await this.waitForLatestGenerationItem(30_000);
+
+    this.scrollIntoViewIfNeeded(generationItem);
+    await this.delay(500);
+
+    if (this.clickDownloadActionWithin(generationItem)) {
+      await this.delay(1_500);
+      return;
+    }
+
+    this.hoverElement(generationItem);
+    await this.delay(750);
+
+    if (this.clickDownloadActionWithin(generationItem)) {
+      await this.delay(1_500);
+      return;
+    }
+
+    const menuButton = this.findActionTriggerWithin(generationItem);
+    if (menuButton) {
+      this.scrollIntoViewIfNeeded(menuButton);
+      menuButton.click();
+      await this.delay(750);
+
+      const downloadAction = this.findVisibleDownloadAction(document);
+      if (downloadAction) {
+        this.clickElement(downloadAction);
+        await this.delay(1_500);
+        return;
+      }
+    }
+
+    throw new Error('Could not find a download action for the latest generation.');
+  }
 
   findPromptInput(): HTMLTextAreaElement | null {
     return (
@@ -242,7 +243,6 @@ export class LeonardoDomAdapter {
   }
 
   findNegativePromptInput(): HTMLTextAreaElement | HTMLInputElement | HTMLElement | null {
-    // Verified: enabled via URL param negativePromptEnabled=true
     return document.querySelector<HTMLTextAreaElement>(
       'textarea[placeholder="Type a negative prompt"]'
     );
@@ -261,10 +261,7 @@ export class LeonardoDomAdapter {
     const generateButton = this.findGenerateButton();
     if (!generateButton) return false;
 
-    // During generation the submit button is disabled and a spinner is visible
     const isButtonDisabled = generateButton.disabled;
-
-    // Also check for loading spinner within or near the button
     const hasSpinner = Boolean(
       generateButton.querySelector('svg[class*="spin"], [class*="loading"], [class*="animate-spin"]') ||
       document.querySelector('[class*="generating"], [class*="in-progress"]')
@@ -277,7 +274,6 @@ export class LeonardoDomAdapter {
     const generateButton = this.findGenerateButton();
     if (!generateButton) return false;
 
-    // Generation is complete when the button is enabled again and no spinner
     const isButtonEnabled = !generateButton.disabled;
     const hasNoSpinner = !Boolean(
       generateButton.querySelector('svg[class*="spin"], [class*="loading"], [class*="animate-spin"]') ||
@@ -303,23 +299,153 @@ export class LeonardoDomAdapter {
   }
 
   hasCaptcha(): boolean {
-    return document.body?.textContent?.toLowerCase().includes('verify you are human') ?? false;
+    const text = document.body?.textContent?.toLowerCase() ?? '';
+    return text.includes('verify you are human') || text.includes('captcha');
   }
 
   hasLoginChallenge(): boolean {
     return (
       window.location.pathname.includes('/auth/') ||
+      window.location.pathname.includes('/login') ||
+      window.location.pathname.includes('/sign-in') ||
       Boolean(document.querySelector('input[type="password"]'))
     );
   }
 
   hasInsufficientCreditsWarning(): boolean {
+    const text = document.body?.textContent?.toLowerCase() ?? '';
     return (
-      document.body?.textContent?.toLowerCase().includes('insufficient credits') ?? false
+      text.includes('insufficient credits') ||
+      text.includes('out of credits') ||
+      text.includes('upgrade your plan')
     );
   }
 
-  // --- Utilities -------------------------------------------------------------
+  private findLatestGenerationItem(): HTMLElement | null {
+    const generationItems = Array.from(
+      document.querySelectorAll<HTMLElement>('div[data-testid^="generation-list-item-"]')
+    );
+
+    const visibleItems = generationItems.filter((item) => this.isElementVisible(item));
+    if (visibleItems.length === 0) {
+      return generationItems[0] ?? null;
+    }
+
+    const sorted = visibleItems.sort((a, b) => {
+      const aTop = a.getBoundingClientRect().top;
+      const bTop = b.getBoundingClientRect().top;
+      return aTop - bTop;
+    });
+
+    return sorted[0] ?? null;
+  }
+
+  private async waitForLatestGenerationItem(timeoutMs: number): Promise<HTMLElement> {
+    await this.waitUntil(
+      () => Boolean(this.findLatestGenerationItem()),
+      timeoutMs,
+      'Latest generation item not found within timeout.'
+    );
+
+    const item = this.findLatestGenerationItem();
+    if (!item) {
+      throw new Error('Latest generation item not found.');
+    }
+
+    return item;
+  }
+
+  private clickDownloadActionWithin(container: ParentNode): boolean {
+    const downloadAction = this.findVisibleDownloadAction(container);
+    if (!downloadAction) {
+      return false;
+    }
+
+    this.clickElement(downloadAction);
+    return true;
+  }
+
+  private findVisibleDownloadAction(container: ParentNode): HTMLElement | null {
+    const selectors = [
+      'button[aria-label*="Download"]',
+      'button[title*="Download"]',
+      '[role="menuitem"][aria-label*="Download"]',
+      '[role="menuitem"][title*="Download"]',
+      '[data-testid*="download"]',
+      '[aria-label*="Download"]',
+      '[title*="Download"]',
+      '[role="menuitem"]',
+    ];
+
+    const candidates = Array.from(container.querySelectorAll<HTMLElement>(selectors.join(', ')));
+
+    for (const candidate of candidates) {
+      if (!this.isElementVisible(candidate)) {
+        continue;
+      }
+
+      const text = candidate.textContent?.toLowerCase() ?? '';
+      const ariaLabel = candidate.getAttribute('aria-label')?.toLowerCase() ?? '';
+      const title = candidate.getAttribute('title')?.toLowerCase() ?? '';
+
+      if (text.includes('download') || ariaLabel.includes('download') || title.includes('download')) {
+        return candidate;
+      }
+    }
+
+    return null;
+  }
+
+  private findActionTriggerWithin(container: ParentNode): HTMLButtonElement | null {
+    const buttons = Array.from(container.querySelectorAll<HTMLButtonElement>('button'));
+
+    for (const button of buttons) {
+      if (!this.isElementVisible(button)) {
+        continue;
+      }
+
+      const label = [button.getAttribute('aria-label'), button.getAttribute('title'), button.textContent]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      if (
+        label.includes('more') ||
+        label.includes('menu') ||
+        label.includes('options') ||
+        label.includes('action') ||
+        label.includes('ellipsis') ||
+        label.includes('download')
+      ) {
+        return button;
+      }
+    }
+
+    return null;
+  }
+
+  private hoverElement(element: Element): void {
+    const target = element as HTMLElement;
+    target.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true, view: window }));
+    target.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, cancelable: true, view: window }));
+    target.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, cancelable: true, view: window }));
+  }
+
+  private scrollIntoViewIfNeeded(element: Element): void {
+    if (typeof (element as HTMLElement).scrollIntoView === 'function') {
+      (element as HTMLElement).scrollIntoView({
+        block: 'center',
+        inline: 'center',
+        behavior: 'instant',
+      });
+    }
+  }
+
+  private clickElement(element: HTMLElement): void {
+    this.scrollIntoViewIfNeeded(element);
+    this.hoverElement(element);
+    element.click();
+  }
 
   private findButtonByText(text: string): HTMLButtonElement | null {
     const buttons = document.querySelectorAll<HTMLButtonElement>('button');
@@ -348,6 +474,18 @@ export class LeonardoDomAdapter {
     input.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
+  private isElementVisible(element: Element): boolean {
+    const rect = element.getBoundingClientRect();
+    const style = window.getComputedStyle(element);
+
+    return (
+      rect.width > 0 &&
+      rect.height > 0 &&
+      style.visibility !== 'hidden' &&
+      style.display !== 'none'
+    );
+  }
+
   private async waitUntil(
     condition: () => boolean,
     timeoutMs: number,
@@ -365,6 +503,6 @@ export class LeonardoDomAdapter {
   }
 
   private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }

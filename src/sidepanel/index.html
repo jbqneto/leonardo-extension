@@ -13,32 +13,77 @@
         <p>Local prompt queue assistant for Leonardo.ai.</p>
       </header>
 
-      <section class="panel">
-        <label for="promptFile">Prompt file</label>
-        <input id="promptFile" type="file" accept=".txt,text/plain" />
+      <section class="panel" id="configPanel">
+        <div class="input-tabs" role="tablist">
+          <button id="tabFile" class="tab-btn active" role="tab" aria-selected="true">File</button>
+          <button id="tabPaste" class="tab-btn" role="tab" aria-selected="false">Paste</button>
+        </div>
 
-                <label for="negativePrompt">Negative prompt (optional)</label>
-                <textarea id="negativePrompt" rows="3" placeholder="modern buildings, people, cars, text, watermark..."></textarea>
+        <div id="fileInputArea">
+          <label for="promptFile">Prompt file (.txt)</label>
+          <input id="promptFile" type="file" accept=".txt,text/plain" />
+        </div>
+
+        <div id="pasteInputArea" class="hidden">
+          <label for="promptText">Prompts (one per line, # to comment)</label>
+          <textarea id="promptText" rows="6" placeholder="A serene mountain landscape&#10;# This line is skipped&#10;Futuristic city at night"></textarea>
+        </div>
+
+        <label for="negativePrompt">Negative prompt (optional)</label>
+        <textarea id="negativePrompt" rows="2" placeholder="people, text, watermark..."></textarea>
 
         <label for="postDelay">Post-generation delay (ms)</label>
         <input id="postDelay" type="number" min="0" step="500" value="70000" />
 
         <label for="timeout">Generation timeout (ms)</label>
         <input id="timeout" type="number" min="30000" step="10000" value="180000" />
+
+        <label class="checkbox-row" for="autoDownload">
+          <input id="autoDownload" type="checkbox" />
+          <span>Download automatically after each generation</span>
+        </label>
       </section>
 
       <section class="actions">
         <button id="dryRunButton">Dry run</button>
         <button id="diagnosticsButton">Diagnostics</button>
-        <button id="startButton">Start</button>
-        <button id="pauseButton">Pause</button>
-        <button id="resumeButton">Resume</button>
-        <button id="stopButton">Stop</button>
+        <button id="startButton" class="btn-primary">Start</button>
+        <button id="pauseButton" disabled>Pause</button>
+        <button id="resumeButton" class="hidden" disabled>Resume</button>
+        <button id="stopButton" disabled>Stop</button>
+      </section>
+
+      <section class="progress-box hidden" id="progressBox">
+        <div class="progress-counters">
+          <span class="counter-group">
+            <span id="counterCompleted" class="counter-value">0</span>
+            <span class="counter-label">done</span>
+          </span>
+          <span class="counter-sep">/</span>
+          <span class="counter-group">
+            <span id="counterTotal" class="counter-value">0</span>
+            <span class="counter-label">total</span>
+          </span>
+          <span class="counter-remaining">(<span id="counterRemaining">0</span> remaining)</span>
+        </div>
+        <div class="progress-bar-track">
+          <div id="progressBar" class="progress-bar-fill"></div>
+        </div>
+        <div class="current-prompt-card">
+          <span class="current-prompt-label">Prompt <span id="currentPromptIndex">—</span></span>
+          <span id="currentPromptText" class="current-prompt-text">—</span>
+        </div>
       </section>
 
       <section class="status-box">
-        <h2>Status</h2>
-        <pre id="statusOutput">Idle</pre>
+        <div class="status-header">
+          <h2>Status</h2>
+          <button id="detailsToggle" class="btn-link">Details</button>
+        </div>
+        <div id="statusSummary" class="status-summary">Idle</div>
+        <div id="statusDetails" class="status-details hidden">
+          <pre id="statusOutput"></pre>
+        </div>
       </section>
 
       <section class="preview-box">
